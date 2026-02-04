@@ -33,9 +33,7 @@ app.get("/", (req, res) => {
 
 // ✅ Gmail SMTP transporter (Render-safe)
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
+  service: "gmail",
   auth: {
     user: process.env.EMAIL,
     pass: process.env.APP_PASSWORD,
