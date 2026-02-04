@@ -5,15 +5,22 @@ const cors = require("cors");
 
 const app = express();
 
+// ✅ CORS for local + Vercel frontend
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://portfolio-frontend.vercel.app"
+    "https://portfolio-frontend.vercel.app" // change after Vercel deploy if URL differs
   ]
 }));
 
 app.use(express.json());
 
+// ✅ Health check route (fixes "Cannot GET /")
+app.get("/", (req, res) => {
+  res.send("Backend is running 🚀");
+});
+
+// ✅ Gmail SMTP transporter (Render-safe)
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
@@ -24,6 +31,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// ✅ Contact form route
 app.post("/contact", async (req, res) => {
   const { name, email, message } = req.body;
 
@@ -43,11 +51,12 @@ ${message}
 
     res.status(200).json({ success: true });
   } catch (error) {
-    console.log(error);
+    console.error("Mail error:", error);
     res.status(500).json({ success: false });
   }
 });
 
+// ✅ Render requires this
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
