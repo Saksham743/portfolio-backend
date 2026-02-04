@@ -1,11 +1,12 @@
-console.log("OAUTH VERSION RUNNING");
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const nodemailer = require("nodemailer");
-const { google } = require("googleapis");
+const { Resend } = require("resend");
 
 const app = express();
+
+/* -------------------- Resend Setup -------------------- */
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /* -------------------- CORS (Vercel + Local) -------------------- */
 const allowedOrigins = [
@@ -38,36 +39,10 @@ app.get("/", (req, res) => {
   res.send("Backend is running 🚀");
 });
 
-/* -------------------- Gmail OAuth2 Setup -------------------- */
-const OAuth2 = google.auth.OAuth2;
-
-const oauth2Client = new OAuth2(
-  process.env.CLIENT_ID,
-  process.env.CLIENT_SECRET,
-  "https://developers.google.com/oauthplayground"
-);
-
-oauth2Client.setCredentials({
-  refresh_token: process.env.REFRESH_TOKEN,
-});
-
+/* -------------------- Send Mail Function -------------------- */
 async function sendMail(name, email, message) {
-  const accessToken = await oauth2Client.getAccessToken();
-
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      type: "OAuth2",
-      user: process.env.EMAIL,
-      clientId: process.env.CLIENT_ID,
-      clientSecret: process.env.CLIENT_SECRET,
-      refreshToken: process.env.REFRESH_TOKEN,
-      accessToken: accessToken,
-    },
-  });
-
-  await transporter.sendMail({
-    from: process.env.EMAIL,
+  await resend.emails.send({
+    from: "Portfolio <onboarding@resend.dev>",
     to: process.env.EMAIL,
     subject: "🚀 New Portfolio Inquiry",
     text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
