@@ -9,11 +9,20 @@ const app = express();
 
 // ✅ CORS for local + Vercel frontend
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://portfolio-frontend.vercel.app" // change after Vercel deploy if URL differs
-  ]
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      "http://localhost:5173",
+      "https://buildwithsaksham.vercel.app"
+    ];
+
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS not allowed"));
+    }
+  }
 }));
+
 
 app.use(express.json());
 
