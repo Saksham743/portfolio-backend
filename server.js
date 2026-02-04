@@ -1,63 +1,84 @@
 require("dotenv").config();
-console.log("EMAIL:", process.env.EMAIL);
-console.log("APP_PASSWORD:", process.env.APP_PASSWORD ? "SET" : "NOT SET");
 const express = require("express");
-const nodemailer = require("nodemailer");
 const cors = require("cors");
+const nodemailer = require("nodemailer");
+const { google } = require("googleapis");
 
 const app = express();
 
-// ✅ CORS for local + Vercel frontend
-app.use(cors({
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      "http://localhost:5173",
-      "https://buildwithsaksham.vercel.app"
-    ];
+/* -------------------- CORS (Vercel + Local) -------------------- */
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://buildwithsaksham.vercel.app",
+];
 
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("CORS not allowed"));
-    }
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
   }
-}));
 
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
 
 app.use(express.json());
 
-// ✅ Health check route (fixes "Cannot GET /")
+/* -------------------- Health Route -------------------- */
 app.get("/", (req, res) => {
   res.send("Backend is running 🚀");
 });
 
-// ✅ Gmail SMTP transporter (Render-safe)
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL,
-    pass: process.env.APP_PASSWORD,
-  },
+/* -------------------- Gmail OAuth2 Setup -------------------- */
+const OAuth2 = google.auth.OAuth2;
+
+const oauth2Client = new OAuth2(
+  process.env.CLIENT_ID,
+  process.env.CLIENT_SECRET,
+  "https://developers.google.com/oauthplayground"
+);
+
+oauth2Client.setCredentials({
+  refresh_token: process.env.REFRESH_TOKEN,
 });
 
-// ✅ Contact form route
+async function sendMail(name, email, message) {
+  const accessToken = await oauth2Client.getAccessToken();
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      type: "OAuth2",
+      user: process.env.EMAIL,
+      clientId: process.env.CLIENT_ID,
+      clientSecret: process.env.CLIENT_SECRET,
+      refreshToken: process.env.REFRESH_TOKEN,
+      accessToken: accessToken,
+    },
+  });
+
+  await transporter.sendMail({
+    from: process.env.EMAIL,
+    to: process.env.EMAIL,
+    subject: "🚀 New Portfolio Inquiry",
+    text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
+  });
+}
+
+/* -------------------- Contact Route -------------------- */
 app.post("/contact", async (req, res) => {
   const { name, email, message } = req.body;
 
   try {
-    await transporter.sendMail({
-      from: process.env.EMAIL,
-      to: process.env.EMAIL,
-      subject: "🚀 New Portfolio Inquiry",
-      text: `
-Name: ${name}
-Email: ${email}
-
-Message:
-${message}
-      `,
-    });
-
+    await sendMail(name, email, message);
     res.status(200).json({ success: true });
   } catch (error) {
     console.error("Mail error:", error);
@@ -65,7 +86,7 @@ ${message}
   }
 });
 
-// ✅ Render requires this
+/* -------------------- Start Server -------------------- */
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
